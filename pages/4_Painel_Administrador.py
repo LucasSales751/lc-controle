@@ -43,7 +43,7 @@ if not st.session_state["admin_autenticado"]:
     u = st.text_input("USUÁRIO")
     s = st.text_input("SENHA", type="password")
     if st.button("ENTRAR"):
-        if u == "admin" and s == "lc123":
+        if u == "Admin" and s == "cleber2013":
             st.session_state["admin_autenticado"] = True
             st.rerun()
         else: st.error("Acesso Negado")
