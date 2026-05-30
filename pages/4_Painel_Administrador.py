@@ -27,9 +27,9 @@ st.markdown("""
     .brand-top { color: #38BDF8 !important; font-weight: 900; font-size: 20px; letter-spacing: 1px; text-shadow: 0px 0px 8px rgba(56, 189, 248, 0.4); }
     
     /* TABELAS */
-    .styled-table { width: 100%; border-collapse: collapse; background-color: rgba(17, 24, 39, 0.85); border-radius: 6px; overflow: hidden; border: 1px solid #374151; margin-bottom: 10px; }
-    .styled-table th { background-color: #030712; color: #38BDF8; padding: 10px; text-align: left; font-size: 13px; }
-    .styled-table td { padding: 10px; border-bottom: 1px solid #374151; color: #FFFFFF !important; font-size: 14px; font-weight: 500; }
+    .styled-table { width: 100%; border-collapse: collapse; background-color: rgba(17, 24, 39, 0.85); border-radius: 6px; overflow: hidden; border: 1px solid #374151; margin-bottom: 20px; }
+    .styled-table th { background-color: #030712; color: #38BDF8; padding: 12px; text-align: left; font-size: 14px; border-bottom: 2px solid #374151; }
+    .styled-table td { padding: 12px; border-bottom: 1px solid #374151; color: #FFFFFF !important; font-size: 14px; font-weight: 500; }
     
     .login-container { background-color: rgba(17, 24, 39, 0.85); padding: 35px; border-radius: 8px; border: 1px solid #334155; max-width: 450px; margin: 50px auto; }
     </style>
@@ -48,7 +48,7 @@ if not st.session_state["admin_autenticado"]:
     u = st.text_input("USUÁRIO")
     s = st.text_input("SENHA", type="password")
     if st.button("ENTRAR"):
-        if u == "Admin" and s == "cleber2013":
+        if u == "admin" and s == "lc123":
             st.session_state["admin_autenticado"] = True
             st.rerun()
         else: st.error("Acesso Negado")
@@ -90,21 +90,60 @@ else:
         executar_query("UPDATE vales_solicitados SET status = 'APROVADO' WHERE id = ?", (qp["ap_val"],))
         st.query_params.clear(); st.rerun()
 
-    # --- MÉTRICAS ---
+    # --- MÉTRICAS GERAIS ---
     conn = sqlite3.connect(DB_FILE)
-    df_s = pd.read_sql_query("SELECT valor, comissao FROM servicos_pendentes WHERE status='APROVADO'", conn)
-    df_v = pd.read_sql_query("SELECT valor FROM vales_solicitados WHERE status='APROVADO'", conn)
+    df_s = pd.read_sql_query("SELECT atendente, valor, comissao FROM servicos_pendentes WHERE status='APROVADO'", conn)
+    df_v = pd.read_sql_query("SELECT atendente, valor FROM vales_solicitados WHERE status='APROVADO'", conn)
     conn.close()
 
     bruto = df_s['valor'].sum() if not df_s.empty else 0.0
     comis = df_s['comissao'].sum() if not df_s.empty else 0.0
     vales = df_v['valor'].sum() if not df_v.empty else 0.0
     
-    st.markdown("### 📊 Resumo de Caixa")
+    st.markdown("### 📊 Resumo de Caixa Geral")
     m1, m2, m3 = st.columns(3)
     m1.metric("FATURAMENTO BRUTO", f"R$ {bruto:.2f}")
     m2.metric("TOTAL COMISSÕES", f"R$ {comis:.2f}")
     m3.metric("LUCRO LÍQUIDO", f"R$ {bruto - comis - vales:.2f}")
+
+    # --- NOVA SEÇÃO: FECHAMENTO INDIVIDUAL (SOMA VALES E COMISSÕES POR PESSOA) ---
+    st.markdown("---")
+    st.markdown("### 👥 Fechamento por Funcionário (Cálculo Automático)")
+    
+    # Agrupa comissões por funcionário
+    df_comis_agrup = df_s.groupby('atendente')['comissao'].sum().reset_index() if not df_s.empty else pd.DataFrame(columns=['atendente', 'comissao'])
+    # Agrupa vales por funcionário
+    df_vales_agrup = df_v.groupby('atendente')['valor'].sum().reset_index().rename(columns={'valor': 'total_vale'}) if not df_v.empty else pd.DataFrame(columns=['atendente', 'total_vale'])
+    
+    # Junta os dois dados em uma tabela só
+    df_fechamento = pd.merge(df_comis_agrup, df_vales_agrup, on='atendente', how='outer').fillna(0)
+    df_fechamento['liquido'] = df_fechamento['comissao'] - df_fechamento['total_vale']
+
+    if df_fechamento.empty:
+        st.info("Nenhum registro aprovado para calcular o fechamento dos funcionários ainda.")
+    else:
+        # Criação da tabela visual em HTML para ficar bonita no design premium
+        html_tabela = """
+        <table class='styled-table'>
+            <tr>
+                <th>FUNCIONÁRIO</th>
+                <th>(+) TOTAL COMISSÕES</th>
+                <th>(-) TOTAL VALES PEGO</th>
+                <th>(=) SALDO LÍQUIDO A PAGAR</th>
+            </tr>
+        """
+        for _, linha in df_fechamento.iterrows():
+            cor_saldo = "#34D399" if linha['liquido'] >= 0 else "#F87171"
+            html_tabela += f"""
+            <tr>
+                <td><b>{linha['atendente']}</b></td>
+                <td style='color: #34D399;'>R$ {linha['comissao']:.2f}</td>
+                <td style='color: #F87171;'>R$ {linha['total_vale']:.2f}</td>
+                <td style='color: {cor_saldo}; font-weight: 700;'>R$ {linha['liquido']:.2f}</td>
+            </tr>
+            """
+        html_tabela += "</table>"
+        st.markdown(html_tabela, unsafe_allow_html=True)
 
     # --- FILA DE PENDENTES ---
     st.markdown("---")
@@ -117,7 +156,7 @@ else:
         conn.close()
         for _, r in df_lp.iterrows():
             st.write(f"**{r['atendente']}** | {r['veiculo']} | R$ {r['valor']:.2f}")
-            b1, b2, b3 = st.columns(3)
+            b1, b2 = st.columns(2)
             if b1.button(f"✅ Aprovar", key=f"ap_l_{r['id']}"):
                 st.query_params["ap_lav"] = str(r['id']); st.rerun()
             if b2.button(f"🗑️ Excluir", key=f"del_l_{r['id']}"):
@@ -130,7 +169,7 @@ else:
         conn.close()
         for _, r in df_vp.iterrows():
             st.write(f"**{r['atendente']}** pediu R$ {r['valor']:.2f}")
-            b1, b2, b3 = st.columns(3)
+            b1, b2 = st.columns(2)
             if b1.button(f"✅ Autorizar", key=f"ap_v_{r['id']}"):
                 st.query_params["ap_val"] = str(r['id']); st.rerun()
             if b2.button(f"🗑️ Excluir", key=f"del_v_{r['id']}"):
