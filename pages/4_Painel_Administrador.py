@@ -106,43 +106,54 @@ else:
     m2.metric("TOTAL COMISSÕES", f"R$ {comis:.2f}")
     m3.metric("LUCRO LÍQUIDO", f"R$ {bruto - comis - vales:.2f}")
 
-    # --- NOVA SEÇÃO: FECHAMENTO INDIVIDUAL (SOMA VALES E COMISSÕES POR PESSOA) ---
+    # --- INDIVIDUAL (SOMA VALES E COMISSÕES POR PESSOA) ---
     st.markdown("---")
     st.markdown("### 👥 Fechamento por Funcionário (Cálculo Automático)")
     
-    # Agrupa comissões por funcionário
-    df_comis_agrup = df_s.groupby('atendente')['comissao'].sum().reset_index() if not df_s.empty else pd.DataFrame(columns=['atendente', 'comissao'])
-    # Agrupa vales por funcionário
-    df_vales_agrup = df_v.groupby('atendente')['valor'].sum().reset_index().rename(columns={'valor': 'total_vale'}) if not df_v.empty else pd.DataFrame(columns=['atendente', 'total_vale'])
+    if not df_s.empty:
+        df_s['atendente'] = df_s['atendente'].str.upper().str.strip()
+        df_comis_agrup = df_s.groupby('atendente')['comissao'].sum().reset_index()
+    else:
+        df_comis_agrup = pd.DataFrame(columns=['atendente', 'comissao'])
+        
+    if not df_v.empty:
+        df_v['atendente'] = df_v['atendente'].str.upper().str.strip()
+        df_vales_agrup = df_v.groupby('atendente')['valor'].sum().reset_index().rename(columns={'valor': 'total_vale'})
+    else:
+        df_vales_agrup = pd.DataFrame(columns=['atendente', 'total_vale'])
     
-    # Junta os dois dados em uma tabela só
     df_fechamento = pd.merge(df_comis_agrup, df_vales_agrup, on='atendente', how='outer').fillna(0)
     df_fechamento['liquido'] = df_fechamento['comissao'] - df_fechamento['total_vale']
 
     if df_fechamento.empty:
         st.info("Nenhum registro aprovado para calcular o fechamento dos funcionários ainda.")
     else:
-        # Criação da tabela visual em HTML para ficar bonita no design premium
         html_tabela = """
         <table class='styled-table'>
-            <tr>
-                <th>FUNCIONÁRIO</th>
-                <th>(+) TOTAL COMISSÕES</th>
-                <th>(-) TOTAL VALES PEGO</th>
-                <th>(=) SALDO LÍQUIDO A PAGAR</th>
-            </tr>
+            <thead>
+                <tr>
+                    <th>FUNCIONÁRIO</th>
+                    <th>(+) TOTAL COMISSÕES</th>
+                    <th>(-) TOTAL VALES PEGO</th>
+                    <th>(=) SALDO LÍQUIDO A PAGAR</th>
+                </tr>
+            </thead>
+            <tbody>
         """
         for _, linha in df_fechamento.iterrows():
             cor_saldo = "#34D399" if linha['liquido'] >= 0 else "#F87171"
             html_tabela += f"""
-            <tr>
-                <td><b>{linha['atendente']}</b></td>
-                <td style='color: #34D399;'>R$ {linha['comissao']:.2f}</td>
-                <td style='color: #F87171;'>R$ {linha['total_vale']:.2f}</td>
-                <td style='color: {cor_saldo}; font-weight: 700;'>R$ {linha['liquido']:.2f}</td>
-            </tr>
+                <tr>
+                    <td><b>{linha['atendente']}</b></td>
+                    <td style='color: #34D399;'>R$ {linha['comissao']:.2f}</td>
+                    <td style='color: #F87171;'>R$ {linha['total_vale']:.2f}</td>
+                    <td style='color: {cor_saldo}; font-weight: 700;'>R$ {linha['liquido']:.2f}</td>
+                </tr>
             """
-        html_tabela += "</table>"
+        html_tabela += """
+            </tbody>
+        </table>
+        """
         st.markdown(html_tabela, unsafe_allow_html=True)
 
     # --- FILA DE PENDENTES ---
