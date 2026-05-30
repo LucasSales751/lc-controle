@@ -4,7 +4,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="LC CONTROLE - Lançar Serviço", layout="centered")
 
-# --- DESIGN AUTOMOTIVO PREMIUM (FUNDO RESTAURADO) ---
+# --- DESIGN AUTOMOTIVO PREMIUM ---
 st.markdown("""
     <style>
     [data-testid="stHeader"] { background-color: transparent !important; }
@@ -38,12 +38,17 @@ DB_FILE = "banco_estetica.db"
 
 # --- FORMULÁRIO DE LANÇAMENTO ---
 with st.form("form_servico", clear_on_submit=True):
-    # ALTERADO: Agora é um campo de texto livre para o funcionário escrever o próprio nome
-    atendente = st.text_input("👤 SEU NOME (FUNCIONÁRIO)", placeholder="Digite seu nome completo ou primeiro nome").strip()
+    atendente = st.text_input("👤 SEU NOME (FUNCIONÁRIO)", placeholder="Digite seu nome").strip()
     
     veiculo = st.text_input("🚘 PLACA OU MODELO DO CARRO", placeholder="Ex: Civic Preto ou BRA2E19").upper()
     
-    tipo_servico = st.selectbox("🛠️ TIPO DE SERVIÇO", ["Ducha", "Lavagem Completa"])
+    # MENU ATUALIZADO CONFORME SUA SOLICITAÇÃO
+    tipo_servico = st.selectbox("🛠️ TIPO DE SERVIÇO", [
+        "Ducha", 
+        "Lavagem Externa",
+        "Lavagem Completa", 
+        "Higienização Interna"
+    ])
     
     tamanho_veiculo = st.selectbox("📏 PORTE DO VEÍCULO", ["Pequeno", "Médio", "Grande (SUV / Camionete)"])
 
@@ -51,6 +56,7 @@ with st.form("form_servico", clear_on_submit=True):
     valor_final = 0.0
     comissao_final = 0.0
 
+    # 1. Regras para Ducha
     if tipo_servico == "Ducha":
         if tamanho_veiculo == "Pequeno" or tamanho_veiculo == "Médio":
             valor_final = 10.00
@@ -59,16 +65,27 @@ with st.form("form_servico", clear_on_submit=True):
             valor_final = 20.00
             comissao_final = 5.00
 
+    # 2. Regras para Lavagem Externa (Nova opção fixa em R$ 20)
+    elif tipo_servico == "Lavagem Externa":
+        valor_final = 20.00
+        comissao_final = 5.00
+
+    # 3. Regras para Lavagem Completa
     elif tipo_servico == "Lavagem Completa":
         if tamanho_veiculo == "Pequeno":
             valor_final = 40.00
             comissao_final = 10.00
         elif tamanho_veiculo == "Médio":
             valor_final = 50.00
-            comissao_final = 10.00  # Mantido em 10 reais fixo conforme sua orientação
+            comissao_final = 10.00  # Fixo em R$ 10
         else:  # Grande
             valor_final = 60.00
-            comissao_final = 15.00  # Só muda a partir de 60 reais
+            comissao_final = 15.00  # Só muda no R$ 60
+
+    # 4. Higienização Interna
+    elif tipo_servico == "Higienização Interna":
+        valor_final = 150.00
+        comissao_final = 35.00
 
     # Mostra ao funcionário o valor que será lançado antes de enviar
     st.markdown(f"""
@@ -81,7 +98,7 @@ with st.form("form_servico", clear_on_submit=True):
 
     botao_enviar = st.form_submit_button("🔥 ENVIAR PARA APROVAÇÃO DO ADM")
 
-# --- GRAVAÇÃO NO BANCO DE DADOS (FORA DO FORMULÁRIO) ---
+# --- GRAVAÇÃO NO BANCO DE DADOS ---
 if botao_enviar:
     if not atendente or not veiculo:
         st.error("❌ Por favor, preencha o seu nome e os dados do carro!")
