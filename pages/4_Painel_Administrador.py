@@ -123,17 +123,17 @@ else:
     if df_fechamento.empty:
         st.info("Nenhum registro aprovado para calcular o fechamento dos funcionários ainda.")
     else:
-        # Formata os valores numéricos para exibição monetária em texto do Markdown
+        # Formata os valores numéricos para exibição como dinheiro (R$)
         df_exibir = df_fechamento.copy()
         df_exibir['comissao'] = df_exibir['comissao'].map('R$ {:.2f}'.format)
         df_exibir['total_vale'] = df_exibir['total_vale'].map('R$ {:.2f}'.format)
         df_exibir['liquido'] = df_exibir['liquido'].map('R$ {:.2f}'.format)
         
-        # Renomeia as colunas para o cabeçalho oficial
+        # Altera os títulos das colunas para visualização final
         df_exibir.columns = ["FUNCIONÁRIO", "(+) TOTAL COMISSÕES", "(-) TOTAL VALES PEGO", "(=) SALDO LÍQUIDO A PAGAR"]
         
-        # Renderiza a tabela usando a formatação nativa e limpa do Streamlit Markdown
-        st.markdown(df_exibir.to_markdown(index=False))
+        # ALTERADO: Uso do st.dataframe nativo do Streamlit para evitar erros de dependência externa
+        st.dataframe(df_exibir, use_container_width=True, hide_index=True)
 
     # --- FILA DE PENDENTES ---
     st.markdown("---")
