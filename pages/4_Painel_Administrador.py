@@ -26,11 +26,6 @@ st.markdown("""
     h2, h3, h4 { color: #FFFFFF !important; font-weight: 800; }
     .brand-top { color: #38BDF8 !important; font-weight: 900; font-size: 20px; letter-spacing: 1px; text-shadow: 0px 0px 8px rgba(56, 189, 248, 0.4); }
     
-    /* TABELAS */
-    .styled-table { width: 100%; border-collapse: collapse; background-color: rgba(17, 24, 39, 0.85); border-radius: 6px; overflow: hidden; border: 1px solid #374151; margin-bottom: 20px; }
-    .styled-table th { background-color: #030712; color: #38BDF8; padding: 12px; text-align: left; font-size: 14px; border-bottom: 2px solid #374151; }
-    .styled-table td { padding: 12px; border-bottom: 1px solid #374151; color: #FFFFFF !important; font-size: 14px; font-weight: 500; }
-    
     .login-container { background-color: rgba(17, 24, 39, 0.85); padding: 35px; border-radius: 8px; border: 1px solid #334155; max-width: 450px; margin: 50px auto; }
     </style>
 """, unsafe_allow_html=True)
@@ -128,33 +123,17 @@ else:
     if df_fechamento.empty:
         st.info("Nenhum registro aprovado para calcular o fechamento dos funcionários ainda.")
     else:
-        html_tabela = """
-        <table class='styled-table'>
-            <thead>
-                <tr>
-                    <th>FUNCIONÁRIO</th>
-                    <th>(+) TOTAL COMISSÕES</th>
-                    <th>(-) TOTAL VALES PEGO</th>
-                    <th>(=) SALDO LÍQUIDO A PAGAR</th>
-                </tr>
-            </thead>
-            <tbody>
-        """
-        for _, linha in df_fechamento.iterrows():
-            cor_saldo = "#34D399" if linha['liquido'] >= 0 else "#F87171"
-            html_tabela += f"""
-                <tr>
-                    <td><b>{linha['atendente']}</b></td>
-                    <td style='color: #34D399;'>R$ {linha['comissao']:.2f}</td>
-                    <td style='color: #F87171;'>R$ {linha['total_vale']:.2f}</td>
-                    <td style='color: {cor_saldo}; font-weight: 700;'>R$ {linha['liquido']:.2f}</td>
-                </tr>
-            """
-        html_tabela += """
-            </tbody>
-        </table>
-        """
-        st.markdown(html_tabela, unsafe_allow_html=True)
+        # Formata os valores numéricos para exibição monetária em texto do Markdown
+        df_exibir = df_fechamento.copy()
+        df_exibir['comissao'] = df_exibir['comissao'].map('R$ {:.2f}'.format)
+        df_exibir['total_vale'] = df_exibir['total_vale'].map('R$ {:.2f}'.format)
+        df_exibir['liquido'] = df_exibir['liquido'].map('R$ {:.2f}'.format)
+        
+        # Renomeia as colunas para o cabeçalho oficial
+        df_exibir.columns = ["FUNCIONÁRIO", "(+) TOTAL COMISSÕES", "(-) TOTAL VALES PEGO", "(=) SALDO LÍQUIDO A PAGAR"]
+        
+        # Renderiza a tabela usando a formatação nativa e limpa do Streamlit Markdown
+        st.markdown(df_exibir.to_markdown(index=False))
 
     # --- FILA DE PENDENTES ---
     st.markdown("---")
