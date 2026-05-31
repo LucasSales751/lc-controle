@@ -35,13 +35,31 @@ st.markdown("Preencha os dados abaixo para enviar o serviço.")
 
 DB_FILE = "banco_estetica.db"
 
-# --- FORMULÁRIO DE LANÇAMENTO ---
-with st.form("form_servico", clear_on_submit=True):
+# --- SELETORES EM TEMPO REAL (FORA DO FORMULÁRIO PARA ATUALIZAÇÃO IMEDIATA) ---
+qtd_trabalhadores = st.selectbox("👥 QUANTAS PESSOAS LAVARAM?", [1, 2, 3, 4], index=0)
+
+tipo_servico = st.selectbox("🛠️ TIPO DE SERVIÇO", [
+    "Ducha", 
+    "Lavagem Externa",
+    "Lavagem Completa", 
+    "Higienização Interna",
+    "Lavagem de Moto"
+])
+
+# Preço da moto aparece instantaneamente se selecionado
+preco_moto_escolhido = 20.00
+if tipo_servico == "Lavagem de Moto":
+    preco_moto_escolhido = st.selectbox("🏍️ VALOR DA MOTO (Flexível)", [20.00, 25.00])
+
+# Tamanho do veículo aparece apenas se não for moto
+tamanho_veiculo = "Pequeno"
+if tipo_servico != "Lavagem de Moto":
+    tamanho_veiculo = st.selectbox("📏 PORTE DO VEÍCULO", ["Pequeno", "Médio", "Grande (SUV / Camionete)"])
+
+# --- FORMULÁRIO APENAS PARA ENTRADA DE TEXTO E ENVIO ---
+with st.form("form_dados_finais", clear_on_submit=True):
     
-    # Seleção de quantas pessoas trabalharam no veículo
-    qtd_trabalhadores = st.selectbox("👥 QUANTAS PESSOAS LAVARAM?", [1, 2, 3, 4], index=0)
-    
-    # Campos dinâmicos para os nomes baseados na quantidade selecionada
+    # Campos de nomes dinâmicos baseados na quantidade selecionada acima
     atendentes = []
     if qtd_trabalhadores == 1:
         atendentes.append(st.text_input("👤 SEU NOME (FUNCIONÁRIO)", placeholder="Digite seu nome").strip())
@@ -50,27 +68,11 @@ with st.form("form_servico", clear_on_submit=True):
             atendentes.append(st.text_input(f"👤 NOME DO {i+1}º FUNCIONÁRIO", placeholder=f"Nome do lavador {i+1}").strip())
             
     veiculo = st.text_input("🚘 PLACA OU MODELO DO VEÍCULO", placeholder="Ex: Civic Preto, Titan 160, etc.").upper()
-    
-    tipo_servico = st.selectbox("🛠️ TIPO DE SERVIÇO", [
-        "Ducha", 
-        "Lavagem Externa",
-        "Lavagem Completa", 
-        "Higienização Interna",
-        "Lavagem de Moto"
-    ])
-    
-    tamanho_veiculo = st.selectbox("📏 PORTE DO VEÍCULO (Apenas p/ Carros)", ["Pequeno", "Médio", "Grande (SUV / Camionete)"])
 
-    # Campo dinâmico para preço da moto (só aparece se selecionar Lavagem de Moto)
-    preco_moto_escolhido = 20.00
-    if tipo_servico == "Lavagem de Moto":
-        preco_moto_escolhido = st.selectbox("🏍️ VALOR DA MOTO (Flexível)", [20.00, 25.00], help="Escolha R$ 25 ou R$ 20 caso dê desconto.")
-
-    # --- LÓGICA DE PREÇOS E COMISSÕES AJUSTADA ---
+    # --- LÓGICA DE PREÇOS E COMISSÕES ---
     valor_final = 0.0
     comissao_total_servico = 0.0
 
-    # 1. Ducha
     if tipo_servico == "Ducha":
         if tamanho_veiculo == "Grande (SUV / Camionete)":
             valor_final = 20.00
@@ -78,35 +80,26 @@ with st.form("form_servico", clear_on_submit=True):
         else:
             valor_final = 10.00
             comissao_total_servico = 2.50
-
-    # 2. Lavagem Externa
     elif tipo_servico == "Lavagem Externa":
         valor_final = 20.00
         comissao_total_servico = 5.00
-
-    # 3. Higienização Interna
     elif tipo_servico == "Higienização Interna":
         valor_final = 20.00
         comissao_total_servico = 5.00
-
-    # 4. Lavagem Completa
     elif tipo_servico == "Lavagem Completa":
         if tamanho_veiculo == "Grande (SUV / Camionete)":
             valor_final = 50.00
-            comissao_total_servico = 10.00 # Fixo em R$ 10
+            comissao_total_servico = 10.00
         else:
             valor_final = 30.00
-            comissao_total_servico = 10.00 # Fixo em R$ 10
-
-    # 5. Lavagem de Moto (Comissão Fixa corrigida para R$ 10.00)
+            comissao_total_servico = 10.00
     elif tipo_servico == "Lavagem de Moto":
         valor_final = preco_moto_escolhido
         comissao_total_servico = 10.00
 
-    # Divisão matemática exata da comissão por cabeça
     comissao_por_pessoa = comissao_total_servico / qtd_trabalhadores
 
-    # Mostra o resumo na tela antes de enviar
+    # Resumo dinâmico dentro do formulário
     texto_nomes = ", ".join([n for n in atendentes if n])
     st.markdown(f"""
     <div class="resumo-box">
@@ -137,7 +130,6 @@ if botao_enviar:
             conn = sqlite3.connect(DB_FILE)
             cursor = conn.cursor()
             
-            # Loop para cadastrar a comissão dividida de forma justa para cada ajudante
             for lavador in atendentes:
                 cursor.execute("""
                     INSERT INTO servicos_pendentes (data_hora, atendente, veiculo, servico, valor, comissao, status)
@@ -147,7 +139,7 @@ if botao_enviar:
             conn.commit()
             conn.close()
             
-            st.success(f"✅ Sucesso! Serviço lançado para {texto_nomes}. Cada comissão ficou em R$ {comissao_por_pessoa:.2f}")
+            st.success(f"✅ Sucesso! Serviço lançado.")
             st.rerun()
         except Exception as e:
             st.error(f"Erro ao salvar no banco de dados: {e}")
